@@ -111,7 +111,10 @@ export default function ServicesScreen() {
       ];
 
       return (
-        <View style={{ flex: 1, alignItems: "center", paddingTop: 20 }}>
+        <ScrollView
+          contentContainerStyle={{ flex: 1, alignItems: "center", paddingTop: 20 }}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={[styles.header, { fontSize: 20, marginTop: 10 }]}>Выберите дату</Text>
 
           {/* Календарь */}
@@ -174,7 +177,7 @@ export default function ServicesScreen() {
               <Text style={styles.bookText}>Подтвердить</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       );
     }
 
@@ -200,7 +203,7 @@ export default function ServicesScreen() {
               setCurrentStep(1);
             }}
           >
-            <Text style={styles.doneButtonText}>Готово</Text>
+            <Text style={styles.bookText}>Готово</Text>
           </TouchableOpacity>
         </View>
       );
