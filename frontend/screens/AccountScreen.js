@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import data from "../assets/jsonData/AccountData.json";
 
 
-export default function AccountScreen() {
+export default function AccountScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Мой аккаунт</Text>
@@ -20,7 +20,9 @@ export default function AccountScreen() {
       </View>
 
       {/* Кнопка "Мои записи" */}
-      <TouchableOpacity style={styles.myRecordsButton}>
+      <TouchableOpacity style={styles.myRecordsButton}
+      onPress={() => navigation.navigate('MyRecords')}
+      >
         <Text style={styles.myRecordsText}>Мои записи</Text>
       </TouchableOpacity>
 
