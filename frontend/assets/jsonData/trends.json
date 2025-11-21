@@ -1,0 +1,5 @@
+[
+  { "id": 1, "label": "#все", "value": "all" },
+  { "id": 2, "label": "#маникюр", "value": "nails" },
+  { "id": 3, "label": "#дизайн", "value": "design" }
+]

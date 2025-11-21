@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "img": "https://i.pinimg.com/236x/65/a9/39/65a93914e0ca13d35d598faa4d8ae4d3.jpg",
+        "state": false,
+        "tag": "nails"
+    },
+    {
+        "id": 2,
+        "img": "https://i.pinimg.com/236x/b3/9c/72/b39c72e4124cf1937e606d682cae6130.jpg",
+        "state": false,
+        "tag": "nails"
+    },
+    {
+        "id": 3,
+        "img": "https://i.pinimg.com/236x/33/63/44/33634414308c88a2b1c88260220e1df9.jpg",
+        "state": false,
+        "tag": "nails"
+    }
+]
