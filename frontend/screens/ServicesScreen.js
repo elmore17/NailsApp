@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import { Calendar } from "react-native-calendars";
-import servicesData from "../assets/jsonData/servicesData.json";
 import CheckIcon from "../assets/icons/check.svg";
 
 export default function ServicesScreen() {
@@ -19,6 +19,37 @@ export default function ServicesScreen() {
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+
+  // Состояния для загрузки данных из API
+  const [servicesData, setServicesData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Загрузка данных из API при монтировании компонента
+  useEffect(() => {
+    const fetchServices = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch("http://localhost:8081/api/service");
+        
+        if (!response.ok) {
+          throw new Error(`Ошибка HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setServicesData(data);
+      } catch (err) {
+        console.error("Ошибка загрузки услуг:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
 
   // ===== логика выбора услуг =====
   const toggleCategory = (category) =>
@@ -40,6 +71,40 @@ export default function ServicesScreen() {
   const renderStepContent = () => {
     // --- 1. Услуги ---
     if (currentStep === 1) {
+      // Отображение индикатора загрузки
+      if (loading) {
+        return (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#ACCBFA" />
+            <Text style={styles.loadingText}>Загрузка услуг...</Text>
+          </View>
+        );
+      }
+
+      // Отображение ошибки
+      if (error) {
+        return (
+          <View style={styles.centerContainer}>
+            <Text style={styles.errorText}>Ошибка загрузки: {error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setLoading(true);
+                setError(null);
+                // Повторная загрузка данных
+                fetch("http://localhost:8080/api/service")
+                  .then((response) => response.json())
+                  .then((data) => setServicesData(data))
+                  .catch((err) => setError(err.message))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              <Text style={styles.retryText}>Повторить</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
       return (
         <>
           <ScrollView contentContainerStyle={styles.scroll}>
