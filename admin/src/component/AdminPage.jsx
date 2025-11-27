@@ -1,5 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import testClients from "../assets/jsonData/testClients.json";
+
+const cleanClientName = async (fullName) => {
+  const res = await fetch("http://localhost:8000/clean-name", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ full_name: fullName }),
+  });
+  const data = await res.json();
+  return data; // data.gender -> "М" | "Ж" | "НД"
+};
 
 const CANCEL_REASONS = [
   "Клиент предупредил заранее",
@@ -10,9 +20,17 @@ const CANCEL_REASONS = [
 
 function AdminPage() {
   const [appointments, setAppointments] = useState(testClients);
-
   const [filterClient, setFilterClient] = useState("");
   const [filterDate, setFilterDate] = useState("");
+
+  // состояние для хранения конвертированных валют
+  const [euroAmount, setEuroAmount] = useState(null);
+  const [usdAmount, setUsdAmount] = useState(null);
+  const [ratesLoaded, setRatesLoaded] = useState(false);
+
+  // состояние полов клиентов: { [id]: "М" | "Ж" | "НД" }
+  const [genders, setGenders] = useState({});
+  const [loadingGenders, setLoadingGenders] = useState(false);
 
   // состояние модалки переноса
   const [rescheduleId, setRescheduleId] = useState(null);
@@ -28,9 +46,7 @@ function AdminPage() {
         ? item.clientName.toLowerCase().includes(filterClient.toLowerCase())
         : true;
 
-      const matchDate = filterDate
-        ? item.time.slice(0, 10) === filterDate
-        : true;
+      const matchDate = filterDate ? item.time.slice(0, 10) === filterDate : true;
 
       return matchClient && matchDate;
     });
@@ -40,10 +56,69 @@ function AdminPage() {
     return filteredAppointments.reduce((sum, item) => sum + item.amount, 0);
   }, [filteredAppointments]);
 
+  // Эффект для конвертации валюты при изменении totalAmountForDay
+  useEffect(() => {
+    const convertCurrency = () => {
+      if (typeof window.fx !== "undefined" && window.fx.rates) {
+        try {
+          const eur = window.fx.convert(totalAmountForDay, { from: "RUB", to: "EUR" });
+          const usd = window.fx.convert(totalAmountForDay, { from: "RUB", to: "USD" });
+
+          setEuroAmount(eur);
+          setUsdAmount(usd);
+          setRatesLoaded(true);
+        } catch (error) {
+          console.error("Ошибка конвертации:", error);
+          setRatesLoaded(false);
+        }
+      } else {
+        setTimeout(convertCurrency, 500);
+      }
+    };
+
+    convertCurrency();
+  }, [totalAmountForDay]);
+
+  // Эффект: подгрузка полов для отфильтрованных клиентов
+  useEffect(() => {
+    const loadGenders = async () => {
+      if (filteredAppointments.length === 0) return;
+
+      setLoadingGenders(true);
+      const updates = {};
+
+      for (const item of filteredAppointments) {
+        // если уже есть пол для этого id — пропускаем запрос
+        if (genders[item.id]) continue;
+
+        try {
+          const data = await cleanClientName(item.clientName);
+          updates[item.id] = data.gender || "НД";
+        } catch (e) {
+          console.error("Ошибка получения пола:", e);
+          updates[item.id] = "НД";
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setGenders((prev) => ({ ...prev, ...updates }));
+      }
+      setLoadingGenders(false);
+    };
+
+    loadGenders();
+  }, [filteredAppointments, genders]);
+
+  const getGenderLabel = (g) => {
+    if (g === "М") return "Муж";
+    if (g === "Ж") return "Жен";
+    if (g === "НД") return "Н/д";
+    return loadingGenders ? "..." : "";
+  };
+
   // открыть модалку переноса
   const openRescheduleModal = (item) => {
     setRescheduleId(item.id);
-    // подставляем текущее время записи в формат для datetime-local
     setRescheduleTime(item.time.slice(0, 16));
   };
 
@@ -77,8 +152,6 @@ function AdminPage() {
   const handleCancelSave = () => {
     if (!cancelId) return;
 
-    // в реальном приложении здесь можно отправить причину на сервер
-    // пока просто удаляем запись из списка
     setAppointments((prev) => prev.filter((item) => item.id !== cancelId));
 
     closeCancelModal();
@@ -127,6 +200,15 @@ function AdminPage() {
               <p className="text-xl font-semibold">
                 {totalAmountForDay.toLocaleString("ru-RU")} ₽
               </p>
+              {ratesLoaded && euroAmount !== null && usdAmount !== null && (
+                <div className="text-sm text-slate-600 mt-1">
+                  <p>≈ {euroAmount.toFixed(2)} €</p>
+                  <p>≈ {usdAmount.toFixed(2)} $</p>
+                </div>
+              )}
+              {!ratesLoaded && (
+                <p className="text-xs text-slate-400 mt-1">Загрузка курсов...</p>
+              )}
             </div>
           </div>
         </div>
@@ -145,6 +227,7 @@ function AdminPage() {
                 <thead>
                   <tr className="border-b bg-slate-50">
                     <th className="text-left px-3 py-2">Клиент</th>
+                    <th className="text-left px-3 py-2">Пол</th>
                     <th className="text-left px-3 py-2">Услуга</th>
                     <th className="text-left px-3 py-2">Шаблон</th>
                     <th className="text-left px-3 py-2">Время</th>
@@ -156,6 +239,9 @@ function AdminPage() {
                   {filteredAppointments.map((item) => (
                     <tr key={item.id} className="border-b last:border-0">
                       <td className="px-3 py-2">{item.clientName}</td>
+                      <td className="px-3 py-2">
+                        {getGenderLabel(genders[item.id])}
+                      </td>
                       <td className="px-3 py-2">{item.serviceType}</td>
                       <td className="px-3 py-2">{item.template}</td>
                       <td className="px-3 py-2">
@@ -188,6 +274,11 @@ function AdminPage() {
                   ))}
                 </tbody>
               </table>
+              {loadingGenders && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Определение пола клиентов...
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -196,9 +287,7 @@ function AdminPage() {
         {rescheduleId !== null && (
           <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">
-                Перенос записи
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">Перенос записи</h3>
               <label className="block text-sm font-medium mb-1">
                 Новая дата и время
               </label>
@@ -232,12 +321,10 @@ function AdminPage() {
         {cancelId !== null && (
           <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">
-                Отмена записи
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">Отмена записи</h3>
               <p className="text-sm text-slate-600 mb-3">
-                Выберите причину отмены. Она будет сохранена в системе
-                (в демо просто удаляем запись).
+                Выберите причину отмены. Она будет сохранена в системе (в демо
+                просто удаляем запись).
               </p>
               <label className="block text-sm font-medium mb-1">
                 Причина отмены
