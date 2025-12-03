@@ -7,6 +7,7 @@ import {
   Image,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import { Calendar } from "react-native-calendars";
@@ -15,29 +16,32 @@ import CheckIcon from "../assets/icons/check.svg";
 export default function ServicesScreen() {
   const [expanded, setExpanded] = useState({});
   const [selected, setSelected] = useState({});
+  const [selectedServiceIds, setSelectedServiceIds] = useState([]); // <--- id услуг
   const [currentStep, setCurrentStep] = useState(1);
 
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
 
-  // Состояния для загрузки данных из API
   const [servicesData, setServicesData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Загрузка данных из API при монтировании компонента
+  const [isSubmitting, setIsSubmitting] = useState(false); // <--- флаг отправки
+
   useEffect(() => {
     const fetchServices = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
-        const response = await fetch("http://localhost:8081/api/service");
-        
+        const response = await fetch(
+          "https://board-timing-metropolitan-berlin.trycloudflare.com/api/service"
+        );
+
         if (!response.ok) {
           throw new Error(`Ошибка HTTP: ${response.status}`);
         }
-        
+
         const data = await response.json();
         setServicesData(data);
       } catch (err) {
@@ -51,11 +55,10 @@ export default function ServicesScreen() {
     fetchServices();
   }, []);
 
-  // ===== логика выбора услуг =====
   const toggleCategory = (category) =>
     setExpanded((prev) => ({ ...prev, [category]: !prev[category] }));
 
-  const toggleService = (category, serviceName, price) => {
+  const toggleService = (category, serviceName, price, id) => {
     setSelected((prev) => {
       const key = `${category}-${serviceName}`;
       const newSelected = { ...prev };
@@ -63,15 +66,85 @@ export default function ServicesScreen() {
       else newSelected[key] = price;
       return newSelected;
     });
+
+    setSelectedServiceIds((prev) => {
+      const exists = prev.includes(id);
+      if (exists) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
   };
 
-  const totalPrice = Object.values(selected).reduce((sum, price) => sum + price, 0);
+  const totalPrice = Object.values(selected).reduce(
+    (sum, price) => sum + price,
+    0
+  );
 
-  // ===== шаги =====
+  // ==== createVisit ====
+  const createVisit = async () => {
+    if (!selectedDate || !selectedTime || selectedServiceIds.length === 0) {
+      Alert.alert("Ошибка", "Не выбраны услуги, дата или время");
+      return;
+    }
+
+    // здесь подставь свой реальный telegramId
+    const telegramId = "d_d_yatsenko";
+
+    // selectedDate: "2025-11-29", selectedTime: "14:00"
+    const dateTimeString = `${selectedDate}T${selectedTime}:00`; // 2025-11-29T14:00:00
+    const timestamp = Date.parse(dateTimeString); // мс с 1970-01-01 [web:6]
+
+    if (Number.isNaN(timestamp)) {
+      Alert.alert("Ошибка", "Не удалось распарсить дату/время");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      for (const serviceId of selectedServiceIds) {
+        const res = await fetch(
+          "https://board-timing-metropolitan-berlin.trycloudflare.com/api/visit",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              telegramId,
+              serviceId,
+              timestamp,
+            }),
+          }
+        ); // [web:1][web:2]
+
+        if (!res.ok) {
+          throw new Error(`Ошибка HTTP: ${res.status}`);
+        }
+      }
+
+      Alert.alert("Успех", "Запись успешно сохранена");
+      // при желании можно здесь сбросить состояние и вернуть на шаг 1
+      // setCurrentStep(1); setSelected({}); setSelectedServiceIds([]); ...
+      // сброс состояния «мастера записи»
+      setSelected({});
+      setSelectedServiceIds([]);
+      setSelectedDate(null);
+      setSelectedTime(null);
+      setCurrentStep(1);
+
+      // переход на начальную страницу (если это корневой таб)
+      navigation.navigate("Услуги");
+
+
+    } catch (err) {
+      console.error("Ошибка createVisit:", err);
+      Alert.alert("Ошибка", "Не удалось сохранить запись");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderStepContent = () => {
-    // --- 1. Услуги ---
     if (currentStep === 1) {
-      // Отображение индикатора загрузки
       if (loading) {
         return (
           <View style={styles.centerContainer}>
@@ -81,7 +154,6 @@ export default function ServicesScreen() {
         );
       }
 
-      // Отображение ошибки
       if (error) {
         return (
           <View style={styles.centerContainer}>
@@ -91,8 +163,9 @@ export default function ServicesScreen() {
               onPress={() => {
                 setLoading(true);
                 setError(null);
-                // Повторная загрузка данных
-                fetch("http://localhost:8080/api/service")
+                fetch(
+                  "https://practitioners-forestry-tear-released.trycloudflare.com/api/service"
+                )
                   .then((response) => response.json())
                   .then((data) => setServicesData(data))
                   .catch((err) => setError(err.message))
@@ -115,7 +188,9 @@ export default function ServicesScreen() {
                   style={styles.categoryHeader}
                 >
                   <Text style={styles.categoryTitle}>{category}</Text>
-                  <Text style={styles.arrow}>{expanded[category] ? "▲" : "▼"}</Text>
+                  <Text style={styles.arrow}>
+                    {expanded[category] ? "▲" : "▼"}
+                  </Text>
                 </TouchableOpacity>
 
                 {expanded[category] &&
@@ -126,7 +201,9 @@ export default function ServicesScreen() {
                       <TouchableOpacity
                         key={key}
                         style={styles.serviceItem}
-                        onPress={() => toggleService(category, s.name, s.price)}
+                        onPress={() =>
+                          toggleService(category, s.name, s.price, s.id)
+                        }
                         activeOpacity={0.7}
                       >
                         <Checkbox
@@ -151,7 +228,10 @@ export default function ServicesScreen() {
           <View style={styles.totalContainer}>
             <Text style={styles.totalText}>К оплате: {totalPrice} ₽</Text>
             <TouchableOpacity
-              style={[styles.bookButton, totalPrice === 0 && styles.bookButtonDisabled]}
+              style={[
+                styles.bookButton,
+                totalPrice === 0 && styles.bookButtonDisabled,
+              ]}
               disabled={totalPrice === 0}
               onPress={() => setCurrentStep(2)}
             >
@@ -162,7 +242,6 @@ export default function ServicesScreen() {
       );
     }
 
-    // --- 2. Дата и время ---
     if (currentStep === 2) {
       const availableTimes = [
         "10:00",
@@ -180,9 +259,10 @@ export default function ServicesScreen() {
           contentContainerStyle={{ flex: 1, alignItems: "center", paddingTop: 20 }}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.header, { fontSize: 20, marginTop: 10 }]}>Выберите дату</Text>
+          <Text style={[styles.header, { fontSize: 20, marginTop: 10 }]}>
+            Выберите дату
+          </Text>
 
-          {/* Календарь */}
           <Calendar
             minDate={new Date().toISOString().split("T")[0]}
             onDayPress={(day) => setSelectedDate(day.dateString)}
@@ -246,7 +326,6 @@ export default function ServicesScreen() {
       );
     }
 
-    // --- 3. Подтверждение ---
     if (currentStep === 3) {
       return (
         <View style={styles.confirmContainer}>
@@ -254,21 +333,19 @@ export default function ServicesScreen() {
             <CheckIcon width={120} height={120} />
             <Text style={styles.successText}>
               Вы успешно записались на{" "}
-              {selectedDate.split('-').reverse().join('-')} в {selectedTime}
+              {selectedDate.split("-").reverse().join("-")} в {selectedTime}
             </Text>
             <Text style={styles.successPrice}>Сумма: {totalPrice} ₽</Text>
           </View>
 
           <TouchableOpacity
             style={styles.doneButton}
-            onPress={() => {
-              setSelected({});
-              setSelectedDate(null);
-              setSelectedTime(null);
-              setCurrentStep(1);
-            }}
+            onPress={createVisit}
+            disabled={isSubmitting}
           >
-            <Text style={styles.bookText}>Готово</Text>
+            <Text style={styles.bookText}>
+              {isSubmitting ? "Сохранение..." : "Готово"}
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -285,12 +362,11 @@ export default function ServicesScreen() {
           : "Подтверждение"}
       </Text>
 
-      {/* Степпер */}
-      <View style={styles.stepper}>
+      <View className="stepper" style={styles.stepper}>
         {["Услуги", "Дата", "Подтверждение"].map((label, index) => {
           const step = index + 1;
           const active = step <= currentStep;
-          const isClickable = step < currentStep; // можно возвращаться только на предыдущие шаги
+          const isClickable = step < currentStep;
 
           return (
             <TouchableOpacity

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,44 +8,85 @@ import {
   Alert,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 
-// Моковые данные записей
-const mockRecords = [
-  {
-    id: "1",
-    date: "2024-12-15",
-    time: "10:00",
-    service: "Стрижка мужская",
-    price: 1200,
-    master: "Иван Петров",
-  },
-  {
-    id: "2",
-    date: "2024-12-16",
-    time: "14:00",
-    service: "Окрашивание волос",
-    price: 2500,
-    master: "Мария Сидорова",
-  },
-  {
-    id: "3",
-    date: "2024-12-17",
-    time: "11:00",
-    service: "Маникюр",
-    price: 800,
-    master: "Анна Козлова",
-  },
-];
-
 export default function MyRecordsScreen({ navigation }) {
-  const [records, setRecords] = useState(mockRecords);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [rescheduleModalVisible, setRescheduleModalVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
+
+  const availableTimes = [
+    "10:00",
+    "11:00",
+    "12:00",
+    "13:00",
+    "14:00",
+    "15:00",
+    "16:00",
+    "17:00",
+  ];
+
+  // === загрузка визитов по telegramId ===
+  useEffect(() => {
+    const fetchVisits = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const telegramId = "d_d_yatsenko";
+        const url = `https://board-timing-metropolitan-berlin.trycloudflare.com/api/visit?telegramId=${encodeURIComponent(
+          telegramId
+        )}`; // [web:21][web:2]
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        // ожидаем структуру:
+        // { visits: [ { visitId, serviceName, visitDate } ] }
+
+        const mapped = (data.visits || []).map((v) => {
+          // visitDate строка -> разбиваем на дату и время, если нужно
+          // допустим, приходит ISO "2024-12-15T10:00:00"
+          console.log("visitDate raw:", v.visitDate);
+
+          // если backend уже отдаёт "YYYY-MM-DD HH:MM" или "YYYY-MM-DD":
+          const [datePartRaw, timePartRaw] = String(v.visitDate).split(" ");
+
+          const datePart = datePartRaw ?? "";          // "2024-12-15"
+          const time = (timePartRaw ?? "00:00").slice(0, 5); // "HH:MM"
+
+          return {
+            id: String(v.visitId),
+            date: datePart,
+            time,
+            service: v.serviceName,
+            price: 0,
+            master: "",
+          };
+        });
+
+        setRecords(mapped);
+      } catch (e) {
+        console.error("Ошибка загрузки визитов:", e);
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVisits();
+  }, []);
 
   const handleCancel = (record) => {
     setSelectedRecord(record);
@@ -58,10 +99,8 @@ export default function MyRecordsScreen({ navigation }) {
       return;
     }
 
-    // Удаляем запись из списка
     setRecords(records.filter((r) => r.id !== selectedRecord.id));
-    
-    // Здесь можно добавить логику отправки на сервер
+
     console.log("Отмена записи:", {
       record: selectedRecord,
       reason: cancelReason,
@@ -84,7 +123,6 @@ export default function MyRecordsScreen({ navigation }) {
       return;
     }
 
-    // Обновляем запись
     const updatedRecords = records.map((record) =>
       record.id === selectedRecord.id
         ? {
@@ -103,21 +141,23 @@ export default function MyRecordsScreen({ navigation }) {
     Alert.alert("Успех", "Запись перенесена");
   };
 
-  const availableTimes = ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return dateString;
   };
 
   return (
     <View style={styles.container}>
-
-      {records.length === 0 ? (
+      {/* состояние загрузки / ошибки */}
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#ACCBFA" />
+          <Text style={styles.emptyText}>Загрузка записей...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Ошибка: {error}</Text>
+        </View>
+      ) : records.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>У вас нет активных записей</Text>
         </View>
@@ -131,10 +171,12 @@ export default function MyRecordsScreen({ navigation }) {
                 </Text>
                 <Text style={styles.recordPrice}>{record.price} ₽</Text>
               </View>
-              
+
               <Text style={styles.serviceName}>{record.service}</Text>
-              <Text style={styles.masterName}>Мастер: {record.master}</Text>
-              
+              {!!record.master && (
+                <Text style={styles.masterName}>Мастер: {record.master}</Text>
+              )}
+
               <View style={styles.buttonsContainer}>
                 <TouchableOpacity
                   style={[styles.button, styles.rescheduleButton]}
@@ -142,7 +184,7 @@ export default function MyRecordsScreen({ navigation }) {
                 >
                   <Text style={styles.rescheduleButtonText}>Перенести</Text>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[styles.button, styles.cancelButton]}
                   onPress={() => handleCancel(record)}

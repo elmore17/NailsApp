@@ -30,7 +30,8 @@ export default function AccountScreen({ navigation }) {
           <Text style={styles.myRecordsText}>Оплата</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.myRecordsButton}>
+      <TouchableOpacity style={styles.myRecordsButton}
+      onPress={() => navigation.navigate('Favorites')}>
           <Text style={styles.myRecordsText}>Избранное</Text>
         </TouchableOpacity>
     </View>

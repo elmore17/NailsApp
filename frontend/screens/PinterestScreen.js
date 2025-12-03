@@ -14,7 +14,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function PinterestScreen() {
   const [data, setData] = useState(PTR);
-  const [selectedFilters, setSelectedFilters] = useState([]); // несколько #
+  const [selectedFilters, setSelectedFilters] = useState([]);
 
   const toggleFavorite = (id) => {
     setData((prev) =>
@@ -25,7 +25,6 @@ export default function PinterestScreen() {
   };
 
   const toggleFilter = (value) => {
-    // value === "all" сбрасывает всё
     if (value === "all") {
       setSelectedFilters([]);
       return;
@@ -33,18 +32,14 @@ export default function PinterestScreen() {
 
     setSelectedFilters((prev) =>
       prev.includes(value)
-        ? prev.filter((v) => v !== value) // убрать, если уже выбран
-        : [...prev, value] // добавить новый
+        ? prev.filter((v) => v !== value)
+        : [...prev, value]
     );
   };
 
   const filteredData = useMemo(() => {
-    // если нет выбранных фильтров — показываем всё
     if (selectedFilters.length === 0) return data;
-    // если у карточки один tag
     return data.filter((item) => selectedFilters.includes(item.tag));
-    // если у карточки массив тегов:
-    // return data.filter((item) => item.tags?.some((t) => selectedFilters.includes(t)));
   }, [data, selectedFilters]);
 
   const renderItem = ({ item }) => (
@@ -94,7 +89,9 @@ export default function PinterestScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Идеи с Pinterest</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Идеи с Pinterest</Text>
+      </View>
 
       <FlatList
         data={filteredData}
@@ -125,12 +122,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingTop: 60,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    justifyContent: "flex-start",
+  },
   header: {
     fontSize: 26,
     fontWeight: "bold",
     color: "#ACCBFA",
-    textAlign: "center",
-    marginBottom: 20,
   },
   listContent: {
     paddingHorizontal: 20,

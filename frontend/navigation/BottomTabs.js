@@ -5,6 +5,7 @@ import ServicesScreen from "../screens/ServicesScreen";
 import PinterestScreen from "../screens/PinterestScreen";
 import AccountScreen from "../screens/AccountScreen";
 import MyRecordsScreen from "../screens/MyRecordsScreen"; 
+import FavoritesScreen from "../screens/FavoritesScreen";
 import { Ionicons } from "@expo/vector-icons";
 
 const Tab = createBottomTabNavigator();
@@ -30,6 +31,16 @@ function AccountStackScreen() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+        }}
+      />
+      <AccountStack.Screen
+        name="Favorites"
+        component={FavoritesScreen}
+        options={{
+          title: "Избранное",
+          headerStyle: { backgroundColor: "#ACCBFA" },
+          headerTintColor: "#fff",
+          headerTitleStyle: { fontWeight: "bold" },
         }}
       />
     </AccountStack.Navigator>
