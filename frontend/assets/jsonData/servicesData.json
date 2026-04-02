@@ -1,0 +1,30 @@
+{
+  "Брови": [
+    {
+      "name": "Ламинирование",
+      "price": 1000,
+      "photo": "https://goldenmandarin.ru/wp-content/uploads/2021/06/3.jpg",
+      "time": "30"
+    },
+    {
+      "name": "Коррекция",
+      "price": 800,
+      "photo": "https://example.com/brows2.jpg",
+      "time": "30"
+    }
+  ],
+  "Ногти": [
+    {
+      "name": "Маникюр",
+      "price": 1200,
+      "photo": "https://example.com/nails1.jpg",
+      "time": "30"
+    },
+    {
+      "name": "Покрытие гель-лаком",
+      "price": 1500,
+      "photo": "https://example.com/nails2.jpg",
+      "time": "30"
+    }
+  ]
+}

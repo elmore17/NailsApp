@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  nails:
+    image: 'nails:latest'
+    build:
+      context: .
+      args:
+        JAR_FILE: NailsApp-1.0-SNAPSHOT.jar
+    container_name: nails
+    environment:
+      DATASOURCE_URL: "jdbc:postgresql://postgres:5432/nails"
+      DATASOURCE_USER: "postgres"
+      DATASOURCE_PASSWORD: "postgres"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # порт 8080 можно оставить для прямого доступа или убрать, если ходишь только через nginx
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: nails-postgres
+    environment:
+      POSTGRES_DB: "nails"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - nails-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: nails-nginx
+    depends_on:
+      - nails
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs/nginx-selfsigned.crt:/etc/ssl/nginx-selfsigned.crt:ro
+      - ./certs/nginx-selfsigned.key:/etc/ssl/nginx-selfsigned.key:ro
+    networks:
+      - backend
+
+volumes:
+  nails-data:
+
+networks:
+  backend:
+    driver: bridge
